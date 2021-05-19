@@ -7,7 +7,7 @@
     "start": "node built/lib/index.js",
     "start:dev": "ts-node lib/index.ts",
     "build": "npm run clean && tsc",
-    "clean": "sudo rm -rf built/",
+    "clean": "rm -rf built/",
     "lint": "eslint --ext .ts ."
   },
   "author": "@guicheffer",
@@ -20,6 +20,7 @@
     "dotenv": "^9.0.2",
     "node-fetch": "^2.6.1",
     "node-telegram-bot-api": "^0.53.0",
+    "open": "^8.0.9",
     "pino": "^6.11.3",
     "twitter-lite": "^1.1.0"
   },

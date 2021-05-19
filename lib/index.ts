@@ -1,12 +1,18 @@
+import { DateKey, ImpfstoffLinkVenue, fetchImpfstoffLink } from './impfstoff-link'
+
 import dotenv from 'dotenv'
+import { logger } from './logger'
+import open from 'open'
+
+// import { send } from './bots'
+
 dotenv.config()
 
-import { send } from './bots'
-import { logger } from './logger'
-import { fetchImpfstoffLink, DateKey, ImpfstoffLinkVenue } from './impfstoff-link'
 
 const DIFF_MIN = 5 // 5 minutes diff
 const TIMER_BOT_FETCH = 2 * 1000 // 2 seconds
+
+const ignoredPlaces = process.env.IGNORED_PLACES ? process.env.IGNORED_PLACES.split(' ') : []
 
 const urls = {
   arena: 'https://bit.ly/2PL4I8J',
@@ -37,7 +43,7 @@ function checkFirstAvailableDate(dates: ImpfstoffLinkVenue['stats'], dateKeys: D
     if (diffHrs !== 1) continue
 
     if (diffMins <= DIFF_MIN) {
-      if (usedQueue[dateKeys[i]]?.toString() === lastTime.toString()) {
+      if (usedQueue[dateKeys[i]] && usedQueue[dateKeys[i]].toString() === lastTime.toString()) {
         return { availableDate: null }
       }
       if ((diffMins === 0 || diffMins === 1) && usedQueue[dateKeys[i]] === 0) {
@@ -58,33 +64,36 @@ function checkFirstAvailableDate(dates: ImpfstoffLinkVenue['stats'], dateKeys: D
 
 // Interval for checking vaccines appointment
 setInterval(() => {
-  const msgsQueue: string[] = []
+  // const msgsQueue: string[] = []
 
+  console.log("Checking...")
   fetchImpfstoffLink()
-    .then((json) => {
+    .then(async (json) => {
       const { stats: places } = json
 
       for (let i = 0; i < places.length; i++) {
-        const dates = places[i].stats ?? {}
+        const dates = places[i].stats ? places[i].stats : {}
         const dateKeys: DateKey[] = Object.keys(dates) as DateKey[]
         const hasDates = Boolean(dateKeys.length)
         const place = places[i].id
         const placeName = places[i].name
 
-        if (!hasDates) continue
+        if (ignoredPlaces.includes(place) || !hasDates) continue
 
-        const { availableDate = null, diffMins } = checkFirstAvailableDate(dates, dateKeys) ?? {}
+        const result = checkFirstAvailableDate(dates, dateKeys)
+        const { availableDate = null } = result ? result: {}
 
         if (availableDate) {
           const link = urls[place]
           const date = new Date(availableDate).toLocaleDateString('de-DE')
-          const seen = diffMins === 0 ? 'just now' : `seen ${diffMins} mins ago`
+          // const seen = diffMins === 0 ? 'just now' : `seen ${diffMins} mins ago`
 
-          msgsQueue.push(`💉 Appointments on _${placeName}_ available on *${date}* at ${link} (_${seen}_)`)
+          // msgsQueue.push(`💉 Appointments on _${placeName}_ available on *${date}* at ${link} (_${seen}_)`)
+          console.log(`💉 Appointments on _${placeName}_ available on *${date}* at ${link}`)
+          await open(link)
+          break
         }
-      }
-
-      msgsQueue.forEach((message) => send(message))
+      }  
     })
     .catch((error) => logger.error({ error }, 'FAILED_FETCH'))
 }, TIMER_BOT_FETCH)
